@@ -28,12 +28,12 @@ var (
 )
 
 func main() {
-	//mux := http.NewServeMux()
-	http.HandleFunc("/", Home)
-	http.HandleFunc("/addTransaction", addTransaction)
-	http.HandleFunc("/getTransaction", getTransaction)
-	fmt.Println("Сервер запущен на порту")
-	err := http.ListenAndServe(":8080", nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", Home)
+	mux.HandleFunc("/addTransaction", addTransaction)
+	mux.HandleFunc("/getTransaction", getTransaction)
+	fmt.Println("Сервер запущен на порту 8080")
+	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
