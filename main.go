@@ -69,7 +69,7 @@ func addTransaction(w http.ResponseWriter, r *http.Request) {
 
 	var id int
 	mutex.Lock()
-	err := db.QueryRow(context.Background(), "INSERT INTO Transaction (amount,type) VALUES ($1,$2) RETURNING id", t.Amount, t.Type).Scan(&id)
+	err := db.QueryRow(context.Background(), "INSERT INTO transaction (amount,type) VALUES ($1,$2) RETURNING id", t.Amount, t.Type).Scan(&id)
 
 	if err != nil {
 		log.Println("Ошибка при добавлении транзакции:", err)
