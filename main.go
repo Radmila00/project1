@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
+
+	"github.com/jackc/pgx/v4"
 )
+
+var db *pgx.Conn
 
 type Transaction struct {
 	ID     int     `json:"id"`
@@ -21,20 +26,22 @@ type User struct {
 	Password string `json:"password"`
 }
 
-var (
-	transaction []Transaction
-	nextID      = 1
-	mutex       sync.Mutex //для безопасного доступа нескольких горутин
-)
+var mutex sync.Mutex //для безопасного доступа нескольких горутин
 
 func main() {
+	var err error
+	db, err = pgx.Connect(context.Background(), "postgres://radmila:postgres@localhost:5432/trekerTransaction")
+	if err != nil {
+		log.Fatal("Ошибка подключения к базе данных", err)
+	}
+	defer db.Close(context.Background())
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", Home)
 	mux.HandleFunc("/addTransaction", addTransaction)
 	mux.HandleFunc("/getTransaction", getTransaction)
 	fmt.Println("Сервер запущен на порту 8080")
-	err := http.ListenAndServe(":8080", mux)
-	if err != nil {
+	er := http.ListenAndServe(":8080", mux)
+	if er != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 
@@ -59,18 +66,44 @@ func addTransaction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Неверный формат", http.StatusBadRequest)
 		return
 	}
+
+	var id int
 	mutex.Lock()
-	t.ID = nextID
-	nextID++
-	transaction = append(transaction, t)
-	mutex.Unlock()
+	err := db.QueryRow(context.Background(), "INSERT INTO Transaction (amount,type) VALUES ($1,$2) RETURNING id", t.Amount, t.Type).Scan(&id)
+
+	if err != nil {
+		log.Println("Ошибка при добавлении транзакции:", err)
+		http.Error(w, "Ошибка добавления транзакции", http.StatusInternalServerError)
+		return
+	}
+	defer mutex.Unlock()
+	t.ID = id
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(t)
 }
 
 func getTransaction(w http.ResponseWriter, r *http.Request) {
-	mutex.Lock()
-	defer mutex.Unlock()
+
 	w.Header().Set("Content-Type", "application/json")
+	mutex.Lock()
+	rows, err := db.Query(context.Background(), "SELECT id, amount,type FROM Transaction")
+
+	if err != nil {
+		http.Error(w, "Ошибка получения транзакций", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	defer mutex.Unlock()
+	var transaction []Transaction
+	for rows.Next() {
+		var t Transaction
+		if err := rows.Scan(&t.ID, &t.Amount, &t.Type); err != nil {
+			http.Error(w, "Ошибка чтения данных", http.StatusInternalServerError)
+			return
+		}
+		transaction = append(transaction, t)
+	}
 	json.NewEncoder(w).Encode(transaction)
+
 }

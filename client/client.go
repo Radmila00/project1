@@ -39,6 +39,7 @@ func add(transaction Transaction) (*Transaction, error) {
 	return &addedTransaction, nil
 
 }
+
 func get() ([]Transaction, error) {
 	url := "http://localhost:8080/getTransaction"
 	resp, err := http.Get(url)
@@ -56,11 +57,12 @@ func get() ([]Transaction, error) {
 	}
 	return getransaction, nil
 }
+
 func main() {
 	NewTransaction := Transaction{Amount: 100.0, Type: "income"}
 	add, err := add(NewTransaction)
 	if err != nil {
-		fmt.Println("Ошибка")
+		fmt.Println("Ошибка", err)
 	} else {
 		fmt.Print("Добавлена транзакция:", add)
 	}
